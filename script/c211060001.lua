@@ -14,23 +14,18 @@ function s.initial_effect(c)
     e1:SetOperation(s.atkop)
     c:RegisterEffect(e1)
     --Ritual Summon
-    local ritual_params={handler=c,lvtype=RITPROC_GREATER,forcedselection=function(e,tp,g,sc) return g:IsContains(e:GetHandler()) end,matfilter=aux.FilterBoolFunction(Card.IsLocation,LOCATION_GRAVE),extrafil=s.rextra,extratg=s.extratg}
+    local ritual_params={handler=c,lvtype=RITPROC_GREATER,filter=aux.FilterBoolFunction(Card.IsSetCard,0x10af),location=LOCATION_DECK,forcedselection=function(e,tp,g,sc) return g:IsContains(e:GetHandler()) end,matfilter=aux.FilterBoolFunction(Card.IsLocation,LOCATION_GRAVE),extrafil=s.rextra,extratg=s.extratg}
     local e2=Effect.CreateEffect(c)
 	e2:SetDescription(aux.Stringid(id,1))
 	e2:SetCategory(CATEGORY_RELEASE+CATEGORY_SPECIAL_SUMMON)
 	e2:SetType(EFFECT_TYPE_IGNITION)
 	e2:SetRange(LOCATION_GRAVE)
-	e2:SetCountLimit(1,id)
+	e2:SetCountLimit(1,{id,1})
 	e2:SetTarget(Ritual.Target(ritual_params))
-	e2:SetOperation(function(e,tp,eg,ep,ev,re,r,rp)
-				local c=e:GetHandler()
-				if c:IsRelateToEffect(e) and c:IsControler(tp) then
-					Ritual.Operation(ritual_params)(e,tp,eg,ep,ev,re,r,rp)
-				end
-			end)
+	e2:SetOperation(Ritual.Operation(ritual_params))
 	c:RegisterEffect(e2)
 end
-
+s.listed_series={0xaf,0x10af}
 function s.atkcost(e,tp,eg,ep,ev,re,r,rp,chk)
     if chk==0 then return e:GetHandler():IsDiscardable() end
     Duel.SendtoGrave(e:GetHandler(),REASON_COST+REASON_DISCARD)
@@ -42,27 +37,24 @@ function s.ddfilter(c)
     return c:IsFaceup() and c:IsSetCard(0xaf)
 end
 function s.atkop(e,tp,eg,ep,ev,re,r,rp)
-    local g=Duel.GetMatchingGroup(s.ddfilter,tp,LOCATION_MZONE,0,nil)
-    if #g>0 then
-        local tc=g:GetFirst()
-        while tc do
-            local e1=Effect.CreateEffect(e:GetHandler())
-            e1:SetType(EFFECT_TYPE_SINGLE)
-            e1:SetCode(EFFECT_UPDATE_ATTACK)
-            e1:SetValue(300)
-            e1:SetReset(RESET_EVENT+RESETS_STANDARD+RESET_PHASE+PHASE_END)
-            tc:RegisterEffect(e1)
-            tc=g:GetNext()
-        end
-    end
+    local tc=Duel.SelectMatchingCard(tp,s.ddfilter,tp,LOCATION_MZONE,0,1,1,nil):GetFirst()
+    local e1=Effect.CreateEffect(e:GetHandler())
+    e1:SetType(EFFECT_TYPE_SINGLE)
+    e1:SetCode(EFFECT_UPDATE_ATTACK)
+    e1:SetValue(300)
+    e1:SetReset(RESET_EVENT+RESETS_STANDARD)
+    tc:RegisterEffect(e1)
 end
 
+function s.filter(c)
+    return c:HasLevel() and c:IsSetCard(0xaf) and c:IsAbleToRemove()
+end
 function s.extratg(e,tp,eg,ep,ev,re,r,rp,chk)
 	if chk==0 then return true end
 	Duel.SetOperationInfo(0,CATEGORY_REMOVE,nil,1,tp,LOCATION_GRAVE)
 end
 function s.rextra(e,tp,eg,ep,ev,re,r,rp,chk)
 	if not Duel.IsPlayerAffectedByEffect(tp,CARD_SPIRIT_ELIMINATION) then
-		return Duel.GetMatchingGroup(aux.AND(Card.HasLevel,Card.IsAbleToRemove),tp,LOCATION_GRAVE,0,nil)
+		return Duel.GetMatchingGroup(s.filter,tp,LOCATION_GRAVE,0,nil)
 	end
 end
